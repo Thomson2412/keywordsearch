@@ -3,6 +3,8 @@ import os
 import re
 import string
 import tempfile
+import tkinter
+
 import speech_recognition as sr
 from pocketsphinx import Decoder, get_model_path
 from pydub import AudioSegment
@@ -10,17 +12,23 @@ import tkinter as tk
 import tkinter.filedialog
 
 window = tk.Tk()
+window.configure(bg="#e0e0e0")
 selected_dir = "No dir selected"
 lbl_selected_dir_var = tk.StringVar(value=selected_dir)
-lb_files_content = ["No files"]
-lb_files_content_var = tk.StringVar(value=lb_files_content)
+
+lbl_abstract_header_var = tk.StringVar()
+lbl_text_header_var = tk.StringVar()
+
 ent_search_var = tk.StringVar()
+lb_keywords_content_var = tk.Variable(value=[])
+lb_files_content_var = tk.Variable(value=[])
 
 abstract_text: tk.Text
 file_text: tk.Text
 lb_keywords: tk.Listbox
 
 last_selected_file = ""
+last_selected_keywords = []
 
 
 def main():
@@ -31,12 +39,14 @@ def layout_creator():
     global abstract_text, file_text, lb_keywords
     window.columnconfigure(0, weight=1, minsize=400)
     window.columnconfigure(1, weight=1, minsize=800)
+    window.columnconfigure(2, weight=1, minsize=400)
     window.rowconfigure([0, 1], weight=1, minsize=400)
 
     frame_config = tk.Frame(window)
     frame_config.grid(row=0, column=0, sticky="nsew")
-    lb_keywords = tk.Listbox(frame_config)
+    lb_keywords = tk.Listbox(frame_config, selectmode=tkinter.MULTIPLE, listvariable=lb_keywords_content_var)
     lb_keywords.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+    lb_keywords.bind('<<ListboxSelect>>', keyword_selected)
 
     entry_keywords = tk.Entry(frame_config, width=40, bg="white", fg="black", textvariable=ent_search_var)
     entry_keywords.pack(side=tk.TOP, fill=tk.X, expand=False)
@@ -66,6 +76,8 @@ def layout_creator():
 
     frame_abstract = tk.Frame(window)
     frame_abstract.grid(row=0, column=1, sticky="nsew")
+    lbl_abstract_header = tk.Label(frame_abstract, textvariable=lbl_abstract_header_var)
+    lbl_abstract_header.pack(side=tk.TOP, fill=tk.X, expand=False)
     abstract_text = tk.Text(frame_abstract)
     abstract_text.config(state=tk.DISABLED)
     abstract_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -76,6 +88,8 @@ def layout_creator():
 
     frame_text = tk.Frame(window)
     frame_text.grid(row=1, column=1, sticky="nsew")
+    lbl_text_header = tk.Label(frame_text, textvariable=lbl_text_header_var)
+    lbl_text_header.pack(side=tk.TOP, fill=tk.X, expand=False)
     file_text = tk.Text(frame_text)
     file_text.config(state=tk.DISABLED)
     file_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -100,16 +114,21 @@ def layout_creator():
     # print_segments(reversed(list(kwr.seg())))
 
 
-def populate_files():
-    kw = lb_keywords.get(0)
+def populate_files(keywords):
     filepath_list = []
     for root, dirs, files in os.walk(selected_dir):
         for filename in files:
             if filename.endswith(".txt"):
                 filepath = os.path.join(root, filename)
-                with open(os.path.join(root, filename), "r") as f:
-                    if re.search(r'\b' + kw + r'\b', f.read()):
-                        filepath_list.append(filepath)
+                if len(keywords) > 0:
+                    with open(os.path.join(root, filename), "r") as f:
+                        text = f.read()
+                        for kw in keywords:
+                            if re.search(r'\b' + kw + r'\b', text):
+                                filepath_list.append(filepath)
+                                break
+                else:
+                    filepath_list.append(filepath)
     lb_files_content_var.set(filepath_list)
 
 
@@ -117,21 +136,32 @@ def select_dir():
     global selected_dir
     selected_dir = tk.filedialog.askdirectory()
     lbl_selected_dir_var.set(selected_dir)
+    keywords = list(lb_keywords_content_var.get())
+    populate_files(keywords)
 
 
 def add_keyword_from_entry():
     word = ent_search_var.get()
     if word is not string.whitespace and len(word) > 0:
-        lb_keywords.insert(0, word)
+        keywords = list(lb_keywords_content_var.get())
+        if word not in keywords:
+            keywords.append(word)
+            lb_keywords_content_var.set(keywords)
+            populate_files(keywords)
         ent_search_var.set("")
 
 
 def remove_keyword_selected():
     global lb_keywords
     selection = lb_keywords.curselection()
-    if selection:
-        index = selection[0]
-        lb_keywords.delete(index)
+    if len(selection) > 0:
+        for index in reversed(selection):
+            lb_keywords.delete(index)
+        last_selected_keywords.clear()
+        keywords = list(lb_keywords_content_var.get())
+        populate_files(keywords)
+        clear_abstract()
+        clear_file_text()
 
 
 def file_selected(event):
@@ -142,28 +172,59 @@ def file_selected(event):
         data = event.widget.get(index)
         if last_selected_file != data:
             last_selected_file = data
-            with open(data, "r") as file:
-                file_text.config(state=tk.NORMAL)
-                file_text.delete("1.0", tk.END)
+            with open(last_selected_file, "r") as file:
                 text = file.read()
-                file_text.insert(tk.END, text)
-                file_text.config(state=tk.DISABLED)
+                create_file_text(text, last_selected_file)
+            if len(last_selected_keywords) > 0:
+                create_abstract(text, last_selected_keywords)
 
 
-def create_abstract(input_str, kw):
-    # words = input_str.lower().split(" ")
-    # indices = [index for index, word in enumerate(words) if word == kw.lower()]
-    indices = [m.start() for m in re.finditer(r'\b' + kw + r'\b', input_str)]
+def clear_file_text():
+    lbl_text_header_var.set("")
+    file_text.config(state=tk.NORMAL)
+    file_text.delete("1.0", tk.END)
+    file_text.config(state=tk.DISABLED)
+
+
+def create_file_text(text, file):
+    clear_file_text()
+    lbl_text_header_var.set(file)
+    file_text.config(state=tk.NORMAL)
+    file_text.insert(tk.END, text)
+    file_text.config(state=tk.DISABLED)
+
+
+def keyword_selected(event):
+    global last_selected_keywords
+    selection = event.widget.curselection()
+    if len(selection) > 0:
+        data = []
+        for index in selection:
+            data.append(event.widget.get(index))
+        if set(last_selected_keywords) != set(data):
+            last_selected_keywords = data
+            if last_selected_file is not string.whitespace and len(last_selected_file) > 0:
+                with open(last_selected_file, "r") as file:
+                    create_abstract(file.read(), last_selected_keywords)
+
+
+def clear_abstract():
+    lbl_abstract_header_var.set("")
     abstract_text.config(state=tk.NORMAL)
     abstract_text.delete("1.0", tk.END)
-    for c, index in enumerate(indices):
-        abstract_text.insert(tk.END, f"Abstract {c}: \n")
-        # abstract_text.insert(tk.END, f"{' '.join(words[max(index - 50, 0):index + 50])} \n")
-        abstract_text.insert(tk.END, f"{input_str[max(index - 50, 0):index + 50]} \n")
-
     abstract_text.config(state=tk.DISABLED)
 
 
+def create_abstract(input_str, keywords):
+    clear_abstract()
+    lbl_abstract_header_var.set(", ".join(keywords))
+    abstract_text.config(state=tk.NORMAL)
+    for kw in keywords:
+        indices = [m.start() for m in re.finditer(r'\b' + kw + r'\b', input_str)]
+        for c, index in enumerate(indices):
+            abstract_text.insert(tk.END, f"Abstract for {kw}, instance {c}: \n")
+            abstract_text.insert(tk.END, f"{input_str[max(index - 50, 0):index + 50]} \n\n")
+    abstract_text.config(state=tk.DISABLED)
 
 
 
