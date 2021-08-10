@@ -1,9 +1,10 @@
+import json
 import os
 import re
 import string
 import tkinter as tk
 import tkinter.filedialog
-
+import tkinter.ttk
 import AudioTranscribe
 
 
@@ -11,6 +12,7 @@ class KwsUi:
     def __init__(self) -> None:
         super().__init__()
         self.window = tk.Tk()
+        self.window.title("ViFrU - keyword search")
         self.window.configure(bg="#e0e0e0")
         self.selected_dir = "No dir selected"
         self.file_content = {}
@@ -23,9 +25,7 @@ class KwsUi:
         self.lb_keywords_content_var = tk.Variable(value=[])
         self.lb_files_content_var = tk.Variable(value=[])
 
-        # self.abstract_text: tk.Text
-        # self.file_text: tk.Text
-        # self.lb_keywords: tk.Listbox
+        self.lb_time_words_content_var = tk.Variable(value=[])
 
         self.last_selected_file = ""
 
@@ -86,14 +86,32 @@ class KwsUi:
         sb_text.pack(side=tk.RIGHT, fill=tk.Y)
         self.file_text.config(yscrollcommand=sb_text.set)
 
-        frame_audio = tk.Frame(self.window)
-        frame_audio.grid(row=0, column=2, sticky="nsew")
-        btn_word_transcribe = tk.Button(frame_audio, text="Transcribe all", command=self.transcribe_audio_all)
+        frame_audio_controls = tk.Frame(self.window)
+        frame_audio_controls.grid(row=0, column=2, sticky="nsew")
+        btn_word_transcribe = tk.Button(frame_audio_controls, text="Transcribe all", command=self.transcribe_audio_all)
         btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=True)
-        btn_word_transcribe = tk.Button(frame_audio, text="Transcribe selected", command=self.transcribe_audio_single)
+        btn_word_transcribe = tk.Button(frame_audio_controls, text="Transcribe selected",
+                                        command=self.transcribe_audio_single_btn)
         btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=True)
-        btn_word_search = tk.Button(frame_audio, text="Search", command=self.search_keywords_in_audio)
+        btn_word_search = tk.Button(frame_audio_controls, text="Search", command=self.search_keywords_in_audio)
         btn_word_search.pack(side=tk.TOP, fill=tk.X, expand=True)
+
+        frame_time_words = tk.Frame(self.window)
+        frame_time_words.grid(row=1, column=2, sticky="nsew")
+        lb_time_words = tk.Listbox(frame_time_words, listvariable=self.lb_time_words_content_var)
+        lb_time_words.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        sb_time_words = tk.Scrollbar(frame_time_words, orient="vertical")
+        sb_time_words.config(command=lb_time_words.yview)
+        sb_time_words.pack(side=tk.RIGHT, fill=tk.Y)
+        lb_time_words.config(yscrollcommand=sb_time_words.set)
+        lb_time_words.bind('<<ListboxSelect>>', self.time_word_selected)
+
+        frame_progress = tk.Frame(self.window)
+        frame_progress.grid(row=2, column=0, columnspan=3, sticky="nsew")
+        self.progress_bar = tk.ttk.Progressbar(frame_progress, orient=tk.HORIZONTAL, length=100, mode='determinate')
+        self.progress_bar.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.progress_label = tk.Label(frame_progress, text="Ready")
+        self.progress_label.pack(side=tk.RIGHT)
 
         self.window.mainloop()
 
@@ -101,7 +119,8 @@ class KwsUi:
         if len(self.file_content) > 0:
             filepath_list = []
             if len(keywords) > 0:
-                for file, content in self.file_content.items():
+                for i, (file, content) in enumerate(self.file_content.items()):
+                    self.update_progress_bar(i + 1, len(self.file_content))
                     all_match = True
                     for kw in keywords:
                         if not re.search(r'\b' + kw + r'\b', content["text"]):
@@ -111,17 +130,22 @@ class KwsUi:
                         filepath_list.append(file)
             else:
                 filepath_list = list(self.file_content.keys())
+            if len(filepath_list) == 0:
+                self.last_selected_file = ""
             self.lb_files_content_var.set(filepath_list)
 
     def select_dir(self):
         self.selected_dir = tk.filedialog.askdirectory()
         self.lbl_selected_dir_var.set(self.selected_dir)
         for root, dirs, files in os.walk(self.selected_dir):
-            for filename in files:
+            for i, filename in enumerate(files):
+                files_amount = len(files)
+                self.update_progress_bar(i + 1, files_amount)
                 if filename.endswith(".wav") or filename.endswith(".mp3"):
                     filepath = os.path.splitext(filename)[0]
                     filepath_audio = os.path.join(root, filename)
                     filepath_txt = os.path.join(root, f"{filepath}.txt")
+                    filepath_time = os.path.join(root, f"{filepath}.json")
 
                     text = ""
                     has_transcription = False
@@ -129,11 +153,21 @@ class KwsUi:
                         with open(filepath_txt, "r") as f:
                             text = f.read()
                             has_transcription = True
+                    has_time_file = False
+                    time_content = {}
+                    if os.path.exists(filepath_time):
+                        with open(filepath_time, "r") as f:
+                            time_content = json.load(f)
+                            has_time_file = True
                     self.file_content[filepath] = {
                         "text": text,
+                        "time_content": time_content,
                         "filepath_audio": filepath_audio,
                         "filepath_txt": filepath_txt,
-                        "has_transcription": has_transcription
+                        "has_transcription": has_transcription,
+                        "filepath_time": filepath_time,
+                        "has_time_file": has_time_file
+
                     }
         keywords = list(self.lb_keywords_content_var.get())
         self.populate_files(keywords)
@@ -169,6 +203,7 @@ class KwsUi:
                 keywords = list(self.lb_keywords_content_var.get())
                 if len(keywords) > 0:
                     self.create_abstract(self.last_selected_file, keywords)
+                    self.search_keywords_in_time_file(self.last_selected_file, keywords)
 
     def clear_file_text(self):
         self.lbl_text_header_var.set("")
@@ -218,32 +253,79 @@ class KwsUi:
                 self.abstract_text.insert(tk.END, f"{text[max(index - 50, 0):index + 50]} \n\n")
         self.abstract_text.config(state=tk.DISABLED)
 
-    def transcribe_audio_single(self):
-        selected_file_content = self.file_content[self.last_selected_file]
-        if not selected_file_content["has_transcription"]:
-            result = AudioTranscribe.transcribe(selected_file_content["filepath_audio"])
-            with open(selected_file_content["filepath_txt"], "x") as f:
-                f.write(result)
-            selected_file_content["text"] = result
-            selected_file_content["has_transcription"] = True
-            self.create_file_text(self.last_selected_file)
+    def transcribe_audio_single_btn(self):
+        if self.last_selected_file != "":
+            self.transcribe_audio_single(self.last_selected_file)
+
+    def transcribe_audio_single(self, filename):
+        if filename in self.file_content.keys() and (not self.file_content[filename]["has_transcription"]
+                                                     or not self.file_content[filename]["has_time_file"]):
+            content = self.file_content[filename]
+            result = AudioTranscribe.transcribe(content["filepath_audio"], self.update_progress_bar)
+            if not content["has_transcription"]:
+                result_txt = result.hyp().hypstr
+                with open(content["filepath_txt"], "x") as f:
+                    f.write(result_txt)
+                    content["text"] = result_txt
+                    content["has_transcription"] = True
+            if not content["has_time_file"]:
+                result_time = AudioTranscribe.get_json_from_segments(result.seg())
+                with open(content["filepath_time"], "x") as f:
+                    json.dump(result_time, f, indent=4)
+                    content["time_content"] = result_time
+                    content["has_time_file"] = True
 
     def transcribe_audio_all(self):
-        for content in self.file_content.values():
-            if not content["has_transcription"]:
-                result = AudioTranscribe.transcribe(content["filepath_audio"])
-                with open(content["filepath_txt"], "x") as f:
-                    f.write(result)
-                content["text"] = result
-                content["has_transcription"] = True
+        files_amount = len(self.file_content)
+        for i, filename in enumerate(self.file_content.keys()):
+            self.update_progress_bar(i + 1, files_amount)
+            self.transcribe_audio_single(filename)
 
     def search_keywords_in_audio(self):
-        selected_file_content = self.file_content[self.last_selected_file]
-        if selected_file_content["has_transcription"]:
-            search_list = []
-            keywords = list(self.lb_keywords_content_var.get())
-            for kw in keywords:
-                search_list.append((kw, 20))
-            file_to_search = f"{self.last_selected_file}{selected_file_content['audio_extension']}"
-            result = AudioTranscribe.keyword_search(file_to_search, search_list)
-            print(result)
+        if self.last_selected_file != "":
+            selected_file_content = self.file_content[self.last_selected_file]
+            if selected_file_content["has_transcription"]:
+                search_list = []
+                keywords = list(self.lb_keywords_content_var.get())
+                if len(keywords) > 0:
+                    for kw in keywords:
+                        search_list.append((kw, 1e-20))
+                    file_to_search = selected_file_content["filepath_audio"]
+                    result = AudioTranscribe.keyword_search(file_to_search, search_list)
+                    result_time = AudioTranscribe.get_json_from_segments(result.seg())
+                    to_show_times = []
+                    for kw, times in result_time.items():
+                        for timestamp in times:
+                            to_show_times.append(f"{kw}: {timestamp['start']} - {timestamp['end']}")
+                    self.lb_time_words_content_var.set(to_show_times)
+
+    def search_keywords_in_time_file(self, filename, keywords):
+        self.lb_time_words_content_var.set([])
+        if filename in self.file_content.keys():
+            content = self.file_content[filename]
+            if content["has_time_file"]:
+                if len(keywords) > 0:
+                    to_show_times = []
+                    for kw in keywords:
+                        if kw in content["time_content"]:
+                            timestamps = content["time_content"][kw]
+                            for timestamp in timestamps:
+                                to_show_times.append(f"{kw}: {timestamp['start']} - {timestamp['end']}")
+                    self.lb_time_words_content_var.set(to_show_times)
+
+    def time_word_selected(self, event):
+        selection = event.widget.curselection()
+        if selection:
+            index = selection[0]
+            data = event.widget.get(index)
+            print(data)
+
+    def update_progress_bar(self, current, total):
+        percentage = (current / total) * 100
+        if 0 < percentage < 100:
+            self.progress_bar["value"] = percentage
+            self.progress_label["text"] = f"({current} / {total})"
+        if percentage == 100:
+            self.progress_bar["value"] = 0
+            self.progress_label["text"] = "Ready"
+        self.window.update_idletasks()
