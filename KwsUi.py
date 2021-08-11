@@ -36,6 +36,8 @@ class KwsUi:
 
         frame_config = tk.Frame(self.window)
         frame_config.grid(row=0, column=0, sticky="nsew")
+        lbl_keywords = tk.Label(frame_config, text="Keywords")
+        lbl_keywords.pack(side=tk.TOP, fill=tk.X, expand=False)
         self.lb_keywords = tk.Listbox(frame_config, selectmode=tk.MULTIPLE, listvariable=self.lb_keywords_content_var)
         self.lb_keywords.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         # lb_keywords.bind('<<ListboxSelect>>', keyword_selected)
@@ -88,16 +90,20 @@ class KwsUi:
 
         frame_audio_controls = tk.Frame(self.window)
         frame_audio_controls.grid(row=0, column=2, sticky="nsew")
+        lbl_audio_header = tk.Label(frame_audio_controls, text="Transcribe/Search options")
+        lbl_audio_header.pack(side=tk.TOP, fill=tk.X, expand=False)
         btn_word_transcribe = tk.Button(frame_audio_controls, text="Transcribe all", command=self.transcribe_audio_all)
-        btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=True)
+        btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
         btn_word_transcribe = tk.Button(frame_audio_controls, text="Transcribe selected",
                                         command=self.transcribe_audio_single_btn)
-        btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=True)
+        btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
         btn_word_search = tk.Button(frame_audio_controls, text="Search", command=self.search_keywords_in_audio)
-        btn_word_search.pack(side=tk.TOP, fill=tk.X, expand=True)
+        btn_word_search.pack(side=tk.TOP, fill=tk.X, expand=False)
 
         frame_time_words = tk.Frame(self.window)
         frame_time_words.grid(row=1, column=2, sticky="nsew")
+        lbl_time_header = tk.Label(frame_time_words, text="Timestamps")
+        lbl_time_header.pack(side=tk.TOP, fill=tk.X, expand=False)
         lb_time_words = tk.Listbox(frame_time_words, listvariable=self.lb_time_words_content_var)
         lb_time_words.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         sb_time_words = tk.Scrollbar(frame_time_words, orient="vertical")
