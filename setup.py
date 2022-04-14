@@ -2,11 +2,12 @@ from setuptools import setup
 
 setup(
     name='keywordsearch',
-    version='',
+    version='0.8',
     packages=[''],
-    url='',
-    license='',
-    author='thomas',
-    author_email='',
-    description=''
+    install_requires=[
+        'SpeechRecognition',
+        'pocketsphinx',
+        'pydub'
+    ],
+    author='Thomas Fink',
 )
