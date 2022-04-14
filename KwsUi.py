@@ -97,7 +97,8 @@ class KwsUi:
         btn_word_transcribe = tk.Button(frame_audio_controls, text="Transcribe selected",
                                         command=self.transcribe_audio_single_btn)
         btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
-        btn_word_search = tk.Button(frame_audio_controls, text="Search", command=self.search_keywords_in_audio)
+        btn_word_search = tk.Button(frame_audio_controls, text="Force timestamp search",
+                                    command=self.search_keyword_timestamps_in_audio)
         btn_word_search.pack(side=tk.TOP, fill=tk.X, expand=False)
 
         frame_time_words = tk.Frame(self.window)
@@ -186,6 +187,9 @@ class KwsUi:
                 keywords.append(word)
                 self.lb_keywords_content_var.set(keywords)
                 self.populate_files(keywords)
+                self.clear_abstract()
+                self.clear_file_text()
+                self.lb_time_words_content_var.set([])
             self.ent_search_var.set("")
 
     def remove_keyword_selected(self):
@@ -197,19 +201,23 @@ class KwsUi:
             self.populate_files(keywords)
             self.clear_abstract()
             self.clear_file_text()
+            self.lb_time_words_content_var.set([])
 
     def file_selected(self, event):
         selection = event.widget.curselection()
         if selection:
             index = selection[0]
             data = event.widget.get(index)
-            if self.last_selected_file != data:
-                self.last_selected_file = data
-                self.create_file_text(self.last_selected_file)
-                keywords = list(self.lb_keywords_content_var.get())
-                if len(keywords) > 0:
-                    self.create_abstract(self.last_selected_file, keywords)
-                    self.search_keywords_in_time_file(self.last_selected_file, keywords)
+            # if self.last_selected_file != data:
+            self.last_selected_file = data
+            self.create_file_text(self.last_selected_file)
+            keywords = list(self.lb_keywords_content_var.get())
+            if len(keywords) > 0:
+                self.create_abstract(self.last_selected_file, keywords)
+                self.search_keyword_timestamps_in_time_file(self.last_selected_file, keywords)
+            else:
+                self.clear_abstract()
+                self.lb_time_words_content_var.set([])
 
     def clear_file_text(self):
         self.lbl_text_header_var.set("")
@@ -262,6 +270,9 @@ class KwsUi:
     def transcribe_audio_single_btn(self):
         if self.last_selected_file != "":
             self.transcribe_audio_single(self.last_selected_file)
+            self.create_file_text(self.last_selected_file)
+            self.create_abstract(self.last_selected_file, list(self.lb_keywords_content_var.get()))
+            self.search_keyword_timestamps_in_time_file(self.last_selected_file, list(self.lb_keywords_content_var.get()))
 
     def transcribe_audio_single(self, filename):
         if filename in self.file_content.keys() and (not self.file_content[filename]["has_transcription"]
@@ -287,8 +298,9 @@ class KwsUi:
             self.update_progress_bar(i + 1, files_amount)
             self.transcribe_audio_single(filename)
 
-    def search_keywords_in_audio(self):
+    def search_keyword_timestamps_in_audio(self):
         if self.last_selected_file != "":
+            self.lb_time_words_content_var.set([])
             selected_file_content = self.file_content[self.last_selected_file]
             if selected_file_content["has_transcription"]:
                 search_list = []
@@ -305,7 +317,7 @@ class KwsUi:
                             to_show_times.append(f"{kw}: {timestamp['start']} - {timestamp['end']}")
                     self.lb_time_words_content_var.set(to_show_times)
 
-    def search_keywords_in_time_file(self, filename, keywords):
+    def search_keyword_timestamps_in_time_file(self, filename, keywords):
         self.lb_time_words_content_var.set([])
         if filename in self.file_content.keys():
             content = self.file_content[filename]
