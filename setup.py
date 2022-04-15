@@ -5,7 +5,10 @@ setup(
     version='0.8',
     packages=[''],
     install_requires=[
-        'pydub'
+        'deepspeech-gpu',
+        'librosa',
+        'webrtcvad',
+        'numpy'
     ],
     author='Thomas Fink',
 )
