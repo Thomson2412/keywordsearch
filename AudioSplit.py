@@ -1,25 +1,12 @@
 import collections
-import contextlib
-import wave
 import librosa
 import numpy as np
 
 
-def read_wave(path):
+def read_audio(path):
     audio_data, sample_rate = librosa.load(path, sr=16000)
     duration = librosa.get_duration(y=audio_data, sr=sample_rate)
     return (audio_data * 32767).astype(np.int16), sample_rate, duration
-
-def write_wave(path, audio, sample_rate):
-    """Writes a .wav file.
-
-    Takes path, PCM audio data, and sample rate.
-    """
-    with contextlib.closing(wave.open(path, 'wb')) as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(sample_rate)
-        wf.writeframes(audio)
 
 
 class Frame(object):

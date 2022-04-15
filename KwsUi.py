@@ -2,6 +2,7 @@ import json
 import os
 import re
 import string
+import time
 import tkinter as tk
 import tkinter.filedialog
 import tkinter.ttk
@@ -128,8 +129,8 @@ class KwsUi:
         if len(self.file_content) > 0:
             filepath_list = []
             if len(keywords) > 0:
+                self.update_progress_bar(0, len(self.file_content))
                 for i, (file, content) in enumerate(self.file_content.items()):
-                    self.update_progress_bar(i + 1, len(self.file_content))
                     all_match = True
                     for kw in keywords:
                         if not re.search(r'\b' + kw + r'\b', content["text"]):
@@ -157,7 +158,8 @@ class KwsUi:
         for root, dirs, files in os.walk(self.selected_dir):
             files_amount = len(files)
             for i, filename in enumerate(files):
-                self.update_progress_bar(i + 1, files_amount)
+                if i == 0:
+                    self.update_progress_bar(i, files_amount)
                 if filename.endswith(".wav") or filename.endswith(".mp3"):
                     filepath = os.path.splitext(filename)[0]
                     filepath_audio = os.path.join(root, filename)
@@ -287,7 +289,8 @@ class KwsUi:
             self.transcribe_audio_single(self.last_selected_file)
             self.create_file_text(self.last_selected_file)
             self.create_abstract(self.last_selected_file, list(self.lb_keywords_content_var.get()))
-            self.search_keyword_timestamps_in_time_file(self.last_selected_file, list(self.lb_keywords_content_var.get()))
+            self.search_keyword_timestamps_in_time_file(self.last_selected_file,
+                                                        list(self.lb_keywords_content_var.get()))
 
     def transcribe_audio_single(self, filename):
         if filename in self.file_content.keys() and (not self.file_content[filename]["has_transcription"]
@@ -295,7 +298,7 @@ class KwsUi:
             content = self.file_content[filename]
             result = self.audio_transcriber.transcribe(content["filepath_audio"], self.update_progress_bar)
             if not content["has_transcription"]:
-                result_txt = result[0]
+                result_txt = " ".join(result[0])
                 with open(content["filepath_txt"], "x") as f:
                     f.write(result_txt)
                     content["text"] = result_txt
@@ -309,9 +312,10 @@ class KwsUi:
 
     def transcribe_audio_all(self):
         files_amount = len(self.file_content)
+        self.update_progress_bar(0, files_amount)
         for i, filename in enumerate(self.file_content.keys()):
-            self.update_progress_bar(i + 1, files_amount)
             self.transcribe_audio_single(filename)
+            self.update_progress_bar(i + 1, files_amount)
 
     # def search_keyword_timestamps_in_audio(self):
     #     if self.last_selected_file != "":
@@ -343,7 +347,10 @@ class KwsUi:
                         if kw in content["time_content"]:
                             timestamps = content["time_content"][kw]
                             for timestamp in timestamps:
-                                to_show_times.append(f"{kw}: {timestamp['start']} - {timestamp['end']}")
+                                start = time.strftime('%H:%M:%S', time.gmtime(timestamp["start"]))
+                                end = time.strftime('%H:%M:%S', time.gmtime(timestamp["end"]))
+                                to_show_times.append(f"{kw}: {start} - {end}")
+                                print(timestamp)
                     self.lb_time_words_content_var.set(to_show_times)
 
     def time_word_selected(self, event):
@@ -355,7 +362,7 @@ class KwsUi:
 
     def update_progress_bar(self, current, total):
         percentage = (current / total) * 100
-        if 0 < percentage < 100:
+        if 0 <= percentage < 100:
             self.progress_bar["value"] = percentage
             self.progress_label["text"] = f"({current} / {total})"
         if percentage == 100:
