@@ -5,7 +5,7 @@ import string
 import tkinter as tk
 import tkinter.filedialog
 import tkinter.ttk
-import AudioTranscribe
+from AudioTranscribe_ds import AudioTranscribe
 
 
 class KwsUi:
@@ -97,9 +97,9 @@ class KwsUi:
         btn_word_transcribe = tk.Button(frame_audio_controls, text="Transcribe selected",
                                         command=self.transcribe_audio_single_btn)
         btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
-        btn_word_search = tk.Button(frame_audio_controls, text="Force timestamp search",
-                                    command=self.search_keyword_timestamps_in_audio)
-        btn_word_search.pack(side=tk.TOP, fill=tk.X, expand=False)
+        # btn_word_search = tk.Button(frame_audio_controls, text="Force timestamp search",
+        #                             command=self.search_keyword_timestamps_in_audio)
+        # btn_word_search.pack(side=tk.TOP, fill=tk.X, expand=False)
 
         frame_time_words = tk.Frame(self.window)
         frame_time_words.grid(row=1, column=2, sticky="nsew")
@@ -120,6 +120,8 @@ class KwsUi:
         self.progress_label = tk.Label(frame_progress, text="Ready")
         self.progress_label.pack(side=tk.RIGHT)
 
+        self.audio_transcriber = AudioTranscribe("deepspeech-0.9.3-models.pbmm", "deepspeech-0.9.3-models.scorer")
+
         self.window.mainloop()
 
     def populate_files(self, keywords):
@@ -135,18 +137,26 @@ class KwsUi:
                             break
                     if all_match:
                         filepath_list.append(file)
+                    self.update_progress_bar(i + 1, len(self.file_content))
             else:
                 filepath_list = list(self.file_content.keys())
             if len(filepath_list) == 0:
                 self.last_selected_file = ""
+            if self.last_selected_file not in filepath_list:
+                self.last_selected_file = ""
+                self.clear_abstract()
+                self.clear_file_text()
+                self.lb_time_words_content_var.set([])
+            filepath_list.sort()
             self.lb_files_content_var.set(filepath_list)
 
     def select_dir(self):
         self.selected_dir = tk.filedialog.askdirectory()
         self.lbl_selected_dir_var.set(self.selected_dir)
+        self.file_content = {}
         for root, dirs, files in os.walk(self.selected_dir):
+            files_amount = len(files)
             for i, filename in enumerate(files):
-                files_amount = len(files)
                 self.update_progress_bar(i + 1, files_amount)
                 if filename.endswith(".wav") or filename.endswith(".mp3"):
                     filepath = os.path.splitext(filename)[0]
@@ -176,6 +186,7 @@ class KwsUi:
                         "has_time_file": has_time_file
 
                     }
+                self.update_progress_bar(i + 1, files_amount)
         keywords = list(self.lb_keywords_content_var.get())
         self.populate_files(keywords)
 
@@ -187,9 +198,10 @@ class KwsUi:
                 keywords.append(word)
                 self.lb_keywords_content_var.set(keywords)
                 self.populate_files(keywords)
-                self.clear_abstract()
-                self.clear_file_text()
-                self.lb_time_words_content_var.set([])
+                if self.last_selected_file != "":
+                    self.create_file_text(self.last_selected_file)
+                    self.create_abstract(self.last_selected_file, keywords)
+                    self.search_keyword_timestamps_in_time_file(self.last_selected_file, keywords)
             self.ent_search_var.set("")
 
     def remove_keyword_selected(self):
@@ -199,9 +211,10 @@ class KwsUi:
                 self.lb_keywords.delete(index)
             keywords = list(self.lb_keywords_content_var.get())
             self.populate_files(keywords)
-            self.clear_abstract()
-            self.clear_file_text()
-            self.lb_time_words_content_var.set([])
+            if self.last_selected_file != "" and len(keywords) > 0:
+                self.create_file_text(self.last_selected_file)
+                self.create_abstract(self.last_selected_file, keywords)
+                self.search_keyword_timestamps_in_time_file(self.last_selected_file, keywords)
 
     def file_selected(self, event):
         selection = event.widget.curselection()
@@ -226,15 +239,16 @@ class KwsUi:
         self.file_text.config(state=tk.DISABLED)
 
     def create_file_text(self, file):
-        self.clear_file_text()
-        if self.file_content[file]["has_transcription"]:
-            text = self.file_content[file]["text"]
-        else:
-            text = "No transcription found"
-        self.lbl_text_header_var.set(file)
-        self.file_text.config(state=tk.NORMAL)
-        self.file_text.insert(tk.END, text)
-        self.file_text.config(state=tk.DISABLED)
+        if file != "":
+            self.clear_file_text()
+            if self.file_content[file]["has_transcription"]:
+                text = self.file_content[file]["text"]
+            else:
+                text = "No transcription found"
+            self.lbl_text_header_var.set(file)
+            self.file_text.config(state=tk.NORMAL)
+            self.file_text.insert(tk.END, text)
+            self.file_text.config(state=tk.DISABLED)
 
     # def keyword_selected(event):
     #     global last_selected_keywords
@@ -256,16 +270,17 @@ class KwsUi:
         self.abstract_text.config(state=tk.DISABLED)
 
     def create_abstract(self, file, keywords):
-        self.clear_abstract()
-        text = self.file_content[file]["text"]
-        self.lbl_abstract_header_var.set(", ".join(keywords))
-        self.abstract_text.config(state=tk.NORMAL)
-        for kw in keywords:
-            indices = [m.start() for m in re.finditer(r'\b' + kw + r'\b', text)]
-            for c, index in enumerate(indices):
-                self.abstract_text.insert(tk.END, f"Abstract for {kw}, instance {c}: \n")
-                self.abstract_text.insert(tk.END, f"{text[max(index - 50, 0):index + 50]} \n\n")
-        self.abstract_text.config(state=tk.DISABLED)
+        if file != "" and len(keywords) > 0:
+            self.clear_abstract()
+            text = self.file_content[file]["text"]
+            self.lbl_abstract_header_var.set(", ".join(keywords))
+            self.abstract_text.config(state=tk.NORMAL)
+            for kw in keywords:
+                indices = [m.start() for m in re.finditer(r'\b' + kw + r'\b', text)]
+                for c, index in enumerate(indices):
+                    self.abstract_text.insert(tk.END, f"Abstract for {kw}, instance {c}: \n")
+                    self.abstract_text.insert(tk.END, f"{text[max(index - 50, 0):index + 50]} \n\n")
+            self.abstract_text.config(state=tk.DISABLED)
 
     def transcribe_audio_single_btn(self):
         if self.last_selected_file != "":
@@ -278,15 +293,15 @@ class KwsUi:
         if filename in self.file_content.keys() and (not self.file_content[filename]["has_transcription"]
                                                      or not self.file_content[filename]["has_time_file"]):
             content = self.file_content[filename]
-            result = AudioTranscribe.transcribe(content["filepath_audio"], self.update_progress_bar)
+            result = self.audio_transcriber.transcribe(content["filepath_audio"], self.update_progress_bar)
             if not content["has_transcription"]:
-                result_txt = result.hyp().hypstr
+                result_txt = result[0]
                 with open(content["filepath_txt"], "x") as f:
                     f.write(result_txt)
                     content["text"] = result_txt
                     content["has_transcription"] = True
             if not content["has_time_file"]:
-                result_time = AudioTranscribe.get_json_from_segments(result.seg())
+                result_time = result[1]
                 with open(content["filepath_time"], "x") as f:
                     json.dump(result_time, f, indent=4)
                     content["time_content"] = result_time
@@ -298,24 +313,24 @@ class KwsUi:
             self.update_progress_bar(i + 1, files_amount)
             self.transcribe_audio_single(filename)
 
-    def search_keyword_timestamps_in_audio(self):
-        if self.last_selected_file != "":
-            self.lb_time_words_content_var.set([])
-            selected_file_content = self.file_content[self.last_selected_file]
-            if selected_file_content["has_transcription"]:
-                search_list = []
-                keywords = list(self.lb_keywords_content_var.get())
-                if len(keywords) > 0:
-                    for kw in keywords:
-                        search_list.append((kw, 1e-20))
-                    file_to_search = selected_file_content["filepath_audio"]
-                    result = AudioTranscribe.keyword_search(file_to_search, search_list)
-                    result_time = AudioTranscribe.get_json_from_segments(result.seg())
-                    to_show_times = []
-                    for kw, times in result_time.items():
-                        for timestamp in times:
-                            to_show_times.append(f"{kw}: {timestamp['start']} - {timestamp['end']}")
-                    self.lb_time_words_content_var.set(to_show_times)
+    # def search_keyword_timestamps_in_audio(self):
+    #     if self.last_selected_file != "":
+    #         self.lb_time_words_content_var.set([])
+    #         selected_file_content = self.file_content[self.last_selected_file]
+    #         if selected_file_content["has_transcription"]:
+    #             search_list = []
+    #             keywords = list(self.lb_keywords_content_var.get())
+    #             if len(keywords) > 0:
+    #                 for kw in keywords:
+    #                     search_list.append((kw, 1e-20))
+    #                 file_to_search = selected_file_content["filepath_audio"]
+    #                 result = AudioTranscribe.keyword_search(file_to_search, search_list)
+    #                 result_time = AudioTranscribe.get_json_from_segments(result.seg())
+    #                 to_show_times = []
+    #                 for kw, times in result_time.items():
+    #                     for timestamp in times:
+    #                         to_show_times.append(f"{kw}: {timestamp['start']} - {timestamp['end']}")
+    #                 self.lb_time_words_content_var.set(to_show_times)
 
     def search_keyword_timestamps_in_time_file(self, filename, keywords):
         self.lb_time_words_content_var.set([])

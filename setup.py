@@ -5,8 +5,6 @@ setup(
     version='0.8',
     packages=[''],
     install_requires=[
-        'SpeechRecognition',
-        'pocketsphinx',
         'pydub'
     ],
     author='Thomas Fink',
