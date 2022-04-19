@@ -6,7 +6,15 @@ import time
 import tkinter as tk
 import tkinter.filedialog
 import tkinter.ttk
-from AudioTranscribe_ds import AudioTranscribe
+from AudioTranscribe import AudioTranscribe
+
+
+def time_word_selected(event):
+    selection = event.widget.curselection()
+    if selection:
+        index = selection[0]
+        data = event.widget.get(index)
+        print(data)
 
 
 class KwsUi:
@@ -98,9 +106,6 @@ class KwsUi:
         btn_word_transcribe = tk.Button(frame_audio_controls, text="Transcribe selected",
                                         command=self.transcribe_audio_single_btn)
         btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
-        # btn_word_search = tk.Button(frame_audio_controls, text="Force timestamp search",
-        #                             command=self.search_keyword_timestamps_in_audio)
-        # btn_word_search.pack(side=tk.TOP, fill=tk.X, expand=False)
 
         frame_time_words = tk.Frame(self.window)
         frame_time_words.grid(row=1, column=2, sticky="nsew")
@@ -112,7 +117,7 @@ class KwsUi:
         sb_time_words.config(command=lb_time_words.yview)
         sb_time_words.pack(side=tk.RIGHT, fill=tk.Y)
         lb_time_words.config(yscrollcommand=sb_time_words.set)
-        lb_time_words.bind('<<ListboxSelect>>', self.time_word_selected)
+        lb_time_words.bind('<<ListboxSelect>>', time_word_selected)
 
         frame_progress = tk.Frame(self.window)
         frame_progress.grid(row=2, column=0, columnspan=3, sticky="nsew")
@@ -318,25 +323,6 @@ class KwsUi:
             self.transcribe_audio_single(filename)
             self.update_progress_bar(i + 1, files_amount)
 
-    # def search_keyword_timestamps_in_audio(self):
-    #     if self.last_selected_file != "":
-    #         self.lb_time_words_content_var.set([])
-    #         selected_file_content = self.file_content[self.last_selected_file]
-    #         if selected_file_content["has_transcription"]:
-    #             search_list = []
-    #             keywords = list(self.lb_keywords_content_var.get())
-    #             if len(keywords) > 0:
-    #                 for kw in keywords:
-    #                     search_list.append((kw, 1e-20))
-    #                 file_to_search = selected_file_content["filepath_audio"]
-    #                 result = AudioTranscribe.keyword_search(file_to_search, search_list)
-    #                 result_time = AudioTranscribe.get_json_from_segments(result.seg())
-    #                 to_show_times = []
-    #                 for kw, times in result_time.items():
-    #                     for timestamp in times:
-    #                         to_show_times.append(f"{kw}: {timestamp['start']} - {timestamp['end']}")
-    #                 self.lb_time_words_content_var.set(to_show_times)
-
     def search_keyword_timestamps_in_time_file(self, filename, keywords):
         self.lb_time_words_content_var.set([])
         if filename in self.file_content.keys():
@@ -353,13 +339,6 @@ class KwsUi:
                                 to_show_times.append(f"{kw}: {start} - {end}")
                                 print(timestamp)
                     self.lb_time_words_content_var.set(to_show_times)
-
-    def time_word_selected(self, event):
-        selection = event.widget.curselection()
-        if selection:
-            index = selection[0]
-            data = event.widget.get(index)
-            print(data)
 
     def update_progress_bar(self, current, total):
         percentage = (current / total) * 100

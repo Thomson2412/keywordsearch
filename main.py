@@ -1,4 +1,4 @@
-import AudioTranscribe_ds
+import AudioTranscribe
 from KwsUi import KwsUi
 
 
@@ -19,6 +19,7 @@ def main():
     # print_segments(reversed(list(kwr.seg())))
     # at = AudioTranscribe_ds
     # print(at.transcribe("data/test/test_cut.wav", None))
+
 
 if __name__ == "__main__":
     main()

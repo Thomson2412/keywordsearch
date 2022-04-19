@@ -7,7 +7,6 @@ setup(
     install_requires=[
         'deepspeech-gpu',
         'librosa',
-        'webrtcvad',
         'numpy'
     ],
     author='Thomas Fink',
