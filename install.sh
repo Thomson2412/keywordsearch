@@ -29,7 +29,7 @@ if [[ $CONDA_DEFAULT_ENV == "keywordsearch" ]]; then
 
     echo "[Desktop Entry]
     Name=Keywordsearch
-    Exec=python $(pwd)/main.py
+    Exec=python3 $(pwd)/main.py
     Type=Application" >> $HOME/.local/share/applications/keywordsearch.desktop
 fi
 unset CONDA_ALWAYS_YES
