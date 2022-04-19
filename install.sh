@@ -22,6 +22,9 @@ if [[ $CONDA_DEFAULT_ENV == "keywordsearch" ]]; then
     conda install cudatoolkit=10.1 cudnn=7.6
     pip install .
     
+    conda deactivate
+    conda deactivate
+    
     rm -rf data/models
     mkdir -p data/models
     wget https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0.9.3-models.pbmm -O data/models/deepspeech-0.9.3-models.pbmm
@@ -32,7 +35,6 @@ Name=Keywordsearch
 Exec=bash -c 'cd $(pwd); source ${conda_dir}/bin/activate; conda activate keywordsearch; python3 main.py'
 Type=Application" > $HOME/.local/share/applications/keywordsearch.desktop
     
-    conda deactivate
 fi
 unset CONDA_ALWAYS_YES
 
