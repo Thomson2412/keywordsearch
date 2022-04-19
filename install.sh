@@ -28,9 +28,9 @@ if [[ $CONDA_DEFAULT_ENV == "keywordsearch" ]]; then
     wget https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0.9.3-models.scorer -O data/models/deepspeech-0.9.3-models.scorer
 
     echo "[Desktop Entry]
-    Name=Keywordsearch
-    Exec=python3 $(pwd)/main.py
-    Type=Application" >> $HOME/.local/share/applications/keywordsearch.desktop
+Name=Keywordsearch
+Exec=python3 $(pwd)/main.py
+Type=Application" >> $HOME/.local/share/applications/keywordsearch.desktop
 fi
 unset CONDA_ALWAYS_YES
 
