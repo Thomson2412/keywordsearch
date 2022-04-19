@@ -29,7 +29,7 @@ if [[ $CONDA_DEFAULT_ENV == "keywordsearch" ]]; then
 
     echo "[Desktop Entry]
 Name=Keywordsearch
-Exec=bash -c cd $(pwd); source ${conda_dir}/bin/activate; conda activate keywordsearch; python3 main.py
+Exec=bash -c 'cd $(pwd); source ${conda_dir}/bin/activate; conda activate keywordsearch; python3 main.py'
 Type=Application" > $HOME/.local/share/applications/keywordsearch.desktop
     
     conda deactivate
