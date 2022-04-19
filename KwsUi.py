@@ -121,7 +121,8 @@ class KwsUi:
         self.progress_label = tk.Label(frame_progress, text="Ready")
         self.progress_label.pack(side=tk.RIGHT)
 
-        self.audio_transcriber = AudioTranscribe("deepspeech-0.9.3-models.pbmm", "deepspeech-0.9.3-models.scorer")
+        self.audio_transcriber = AudioTranscribe("data/models/deepspeech-0.9.3-models.pbmm",
+                                                 "data/models/deepspeech-0.9.3-models.scorer")
 
         self.window.mainloop()
 
