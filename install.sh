@@ -1,7 +1,7 @@
 #!/bin/bash
 
-sudo apt install python3-venv
-sudo apt install python3-pip
+sudo apt install python3-venv -y
+sudo apt install python3-pip -y
 python3 -m venv venv
 pip install .
 echo "[Desktop Entry]
