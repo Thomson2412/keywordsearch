@@ -5,6 +5,7 @@ setup(
     version='0.8',
     packages=[''],
     install_requires=[
+        'deepspeech',
         'deepspeech-gpu',
         'librosa',
         'numpy'
