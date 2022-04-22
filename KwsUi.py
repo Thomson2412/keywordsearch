@@ -6,15 +6,8 @@ import time
 import tkinter as tk
 import tkinter.filedialog
 import tkinter.ttk
+import pyglet
 from AudioTranscribe import AudioTranscribe
-
-
-def time_word_selected(event):
-    selection = event.widget.curselection()
-    if selection:
-        index = selection[0]
-        data = event.widget.get(index)
-        print(data)
 
 
 class KwsUi:
@@ -37,6 +30,7 @@ class KwsUi:
         self.lb_time_words_content_var = tk.Variable(value=[])
 
         self.last_selected_file = ""
+        self.last_selected_snippet = -1
 
         self.window.columnconfigure(0, weight=1, minsize=400)
         self.window.columnconfigure(1, weight=1, minsize=800)
@@ -97,27 +91,36 @@ class KwsUi:
         sb_text.pack(side=tk.RIGHT, fill=tk.Y)
         self.file_text.config(yscrollcommand=sb_text.set)
 
-        frame_audio_controls = tk.Frame(self.window)
-        frame_audio_controls.grid(row=0, column=2, sticky="nsew")
-        lbl_audio_header = tk.Label(frame_audio_controls, text="Transcribe/Search options")
+        frame_transcribe_controls = tk.Frame(self.window)
+        frame_transcribe_controls.grid(row=0, column=2, sticky="nsew")
+        lbl_audio_header = tk.Label(frame_transcribe_controls, text="Transcribe options")
         lbl_audio_header.pack(side=tk.TOP, fill=tk.X, expand=False)
-        btn_word_transcribe = tk.Button(frame_audio_controls, text="Transcribe all", command=self.transcribe_audio_all)
-        btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
-        btn_word_transcribe = tk.Button(frame_audio_controls, text="Transcribe selected",
-                                        command=self.transcribe_audio_single_btn)
-        btn_word_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
+        btn_all_transcribe = tk.Button(frame_transcribe_controls, text="Transcribe all in current folder",
+                                       command=self.transcribe_audio_all)
+        btn_all_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
+        btn_one_transcribe = tk.Button(frame_transcribe_controls, text="Transcribe selected",
+                                       command=self.transcribe_audio_single_btn)
+        btn_one_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
 
         frame_time_words = tk.Frame(self.window)
         frame_time_words.grid(row=1, column=2, sticky="nsew")
-        lbl_time_header = tk.Label(frame_time_words, text="Timestamps")
+        lbl_time_header = tk.Label(frame_time_words, text="Timestamps and snippets")
         lbl_time_header.pack(side=tk.TOP, fill=tk.X, expand=False)
+        btn_play_snippet = tk.Button(frame_time_words, text="Play snippet",
+                                     command=self.play_stop_snippet_btn)
+        btn_play_snippet.pack(side=tk.TOP, fill=tk.X, expand=False)
+        btn_save_snippet = tk.Button(frame_time_words, text="Save snippet",
+                                     command=self.transcribe_audio_single_btn)
+        btn_save_snippet.pack(side=tk.TOP, fill=tk.X, expand=False)
+        self.seek_bar = tk.ttk.Progressbar(frame_time_words, orient=tk.HORIZONTAL, length=100, mode='determinate')
+        self.seek_bar.pack(side=tk.TOP, fill=tk.X, expand=False)
         lb_time_words = tk.Listbox(frame_time_words, listvariable=self.lb_time_words_content_var)
         lb_time_words.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         sb_time_words = tk.Scrollbar(frame_time_words, orient="vertical")
         sb_time_words.config(command=lb_time_words.yview)
         sb_time_words.pack(side=tk.RIGHT, fill=tk.Y)
         lb_time_words.config(yscrollcommand=sb_time_words.set)
-        lb_time_words.bind('<<ListboxSelect>>', time_word_selected)
+        lb_time_words.bind('<<ListboxSelect>>', self.time_word_selected)
 
         frame_progress = tk.Frame(self.window)
         frame_progress.grid(row=2, column=0, columnspan=3, sticky="nsew")
@@ -128,6 +131,9 @@ class KwsUi:
 
         self.audio_transcriber = AudioTranscribe("data/models/deepspeech-0.9.3-models.pbmm",
                                                  "data/models/deepspeech-0.9.3-models.scorer")
+
+        # pyglet.options['audio'] = ('openal', 'pulse', 'directsound', 'silent')
+        self.audio_player = pyglet.media.Player()
 
         self.window.mainloop()
 
@@ -323,22 +329,61 @@ class KwsUi:
             self.transcribe_audio_single(filename)
             self.update_progress_bar(i + 1, files_amount)
 
-    def search_keyword_timestamps_in_time_file(self, filename, keywords):
-        self.lb_time_words_content_var.set([])
+    def get_timestamps_for_keywords(self, filename, keywords):
+        result = []
         if filename in self.file_content.keys():
             content = self.file_content[filename]
             if content["has_time_file"]:
                 if len(keywords) > 0:
-                    to_show_times = []
                     for kw in keywords:
                         if kw in content["time_content"]:
                             timestamps = content["time_content"][kw]
                             for timestamp in timestamps:
-                                start = time.strftime('%H:%M:%S', time.gmtime(timestamp["start"]))
-                                end = time.strftime('%H:%M:%S', time.gmtime(timestamp["end"]))
-                                to_show_times.append(f"{kw}: {start} - {end}")
-                                print(timestamp)
-                    self.lb_time_words_content_var.set(to_show_times)
+                                result.append([kw, timestamp])
+        return result
+
+    def search_keyword_timestamps_in_time_file(self, filename, keywords):
+        self.lb_time_words_content_var.set([])
+        timestamps = self.get_timestamps_for_keywords(filename, keywords)
+        to_show_times = []
+        for timestamp in timestamps:
+            start = time.strftime('%H:%M:%S', time.gmtime(timestamp[1]["start"]))
+            end = time.strftime('%H:%M:%S', time.gmtime(timestamp[1]["end"]))
+            to_show_times.append(f"{timestamp[0]}: {start} - {end}")
+        self.lb_time_words_content_var.set(to_show_times)
+
+    def time_word_selected(self, event):
+        selection = event.widget.curselection()
+        if selection:
+            index = selection[0]
+            self.last_selected_snippet = index
+
+    def play_stop_snippet_btn(self):
+        if self.audio_player.playing:
+            self.audio_player = pyglet.media.Player()
+        else:
+            if self.last_selected_file != "":
+                keywords = list(self.lb_keywords_content_var.get())
+                if len(keywords) > 0:
+                    timestamps = self.get_timestamps_for_keywords(self.last_selected_file, keywords)
+                    timestamp = timestamps[self.last_selected_snippet]
+                    self.play_snippet(self.last_selected_file, timestamp[1]["start"], timestamp[1]["end"])
+
+    def play_snippet(self, filename, begin_time, end_time):
+        if filename in self.file_content.keys():
+            content = self.file_content[filename]
+            audio_path = content["filepath_audio"]
+            self.audio_player = pyglet.media.Player()
+            self.audio_player.queue(pyglet.media.load(audio_path))
+            self.audio_player.seek(begin_time - 1)
+            self.audio_player.play()
+
+    def update_seek_bar(self, current, total):
+        percentage = (current / total) * 100
+        if 0 <= percentage < 100:
+            self.progress_bar["value"] = percentage
+        if percentage == 100:
+            self.progress_bar["value"] = 0
 
     def update_progress_bar(self, current, total):
         percentage = (current / total) * 100

@@ -8,7 +8,8 @@ setup(
         'deepspeech',
         'deepspeech-gpu',
         'librosa',
-        'numpy'
+        'numpy',
+        'pyglet'
     ],
     author='Thomas Fink',
 )
