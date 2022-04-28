@@ -29,7 +29,7 @@ if [[ $CONDA_DEFAULT_ENV == "keywordsearch" ]]; then
     wget https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0.9.3-models.pbmm -O data/models/deepspeech-0.9.3-models.pbmm
     wget https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0.9.3-models.scorer -O data/models/deepspeech-0.9.3-models.scorer
 
-    echo "[Desktop Entry]
+    sudo echo "[Desktop Entry]
 Name=Keywordsearch
 Exec=bash -c 'cd $(pwd); source ${conda_dir}/bin/activate; conda activate keywordsearch; python3 main.py'
 Type=Application" > /usr/share/applications/keywordsearch.desktop
