@@ -1,6 +1,4 @@
-import AudioTranscribe
-from KwsUi import KwsUi
-
+from UI.KwsUi import KwsUi
 
 def main():
     KwsUi()

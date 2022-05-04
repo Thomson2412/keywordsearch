@@ -6,8 +6,8 @@ import time
 import tkinter as tk
 import tkinter.filedialog
 import tkinter.ttk
-import pyglet
 from AudioTranscribe import AudioTranscribe
+from UI.EntryWithPlaceholder import EntryWithPlaceholder
 
 
 class KwsUi:
@@ -32,10 +32,10 @@ class KwsUi:
         self.last_selected_file = ""
         self.last_selected_snippet = -1
 
-        self.window.columnconfigure(0, weight=1, minsize=400)
-        self.window.columnconfigure(1, weight=1, minsize=800)
-        self.window.columnconfigure(2, weight=1, minsize=400)
-        self.window.rowconfigure([0, 1], weight=1, minsize=400)
+        self.window.columnconfigure(0, weight=1, minsize=100)
+        self.window.columnconfigure(1, weight=1, minsize=200)
+        self.window.columnconfigure(2, weight=1, minsize=100)
+        self.window.rowconfigure([0, 1], weight=1, minsize=100)
 
         frame_config = tk.Frame(self.window)
         frame_config.grid(row=0, column=0, sticky="nsew")
@@ -45,7 +45,8 @@ class KwsUi:
         self.lb_keywords.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         # lb_keywords.bind('<<ListboxSelect>>', keyword_selected)
 
-        entry_keywords = tk.Entry(frame_config, width=40, bg="white", fg="black", textvariable=self.ent_search_var)
+        entry_keywords = EntryWithPlaceholder(frame_config, width=40, textvariable=self.ent_search_var,
+                                              placeholder="Enter keyword")
         entry_keywords.pack(side=tk.TOP, fill=tk.X, expand=False)
         btn_word_remove = tk.Button(frame_config, text="-", command=self.remove_keyword_selected)
         btn_word_remove.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -95,7 +96,7 @@ class KwsUi:
         frame_transcribe_controls.grid(row=0, column=2, sticky="nsew")
         lbl_audio_header = tk.Label(frame_transcribe_controls, text="Transcribe options")
         lbl_audio_header.pack(side=tk.TOP, fill=tk.X, expand=False)
-        btn_all_transcribe = tk.Button(frame_transcribe_controls, text="Transcribe all in current folder",
+        btn_all_transcribe = tk.Button(frame_transcribe_controls, text="Transcribe all",
                                        command=self.transcribe_audio_all)
         btn_all_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
         btn_one_transcribe = tk.Button(frame_transcribe_controls, text="Transcribe selected",
@@ -110,7 +111,7 @@ class KwsUi:
                                      command=self.play_stop_snippet_btn)
         btn_play_snippet.pack(side=tk.TOP, fill=tk.X, expand=False)
         btn_save_snippet = tk.Button(frame_time_words, text="Save snippet",
-                                     command=self.transcribe_audio_single_btn)
+                                     command=self.save_snippet_btn)
         btn_save_snippet.pack(side=tk.TOP, fill=tk.X, expand=False)
         self.seek_bar = tk.ttk.Progressbar(frame_time_words, orient=tk.HORIZONTAL, length=100, mode='determinate')
         self.seek_bar.pack(side=tk.TOP, fill=tk.X, expand=False)
@@ -131,9 +132,6 @@ class KwsUi:
 
         self.audio_transcriber = AudioTranscribe("data/models/deepspeech-0.9.3-models.pbmm",
                                                  "data/models/deepspeech-0.9.3-models.scorer")
-
-        # pyglet.options['audio'] = ('openal', 'pulse', 'directsound', 'silent')
-        self.audio_player = pyglet.media.Player()
 
         self.window.mainloop()
 
@@ -164,7 +162,11 @@ class KwsUi:
             self.lb_files_content_var.set(filepath_list)
 
     def select_dir(self):
-        self.selected_dir = tk.filedialog.askdirectory()
+        new_dir = tk.filedialog.askdirectory()
+        if new_dir == "" or len(new_dir) == 0:
+            return
+        else:
+            self.selected_dir = new_dir
         self.lbl_selected_dir_var.set(self.selected_dir)
         self.file_content = {}
         for root, dirs, files in os.walk(self.selected_dir):
@@ -359,8 +361,8 @@ class KwsUi:
             self.last_selected_snippet = index
 
     def play_stop_snippet_btn(self):
-        if self.audio_player.playing:
-            self.audio_player = pyglet.media.Player()
+        if True:
+            print("Playing")
         else:
             if self.last_selected_file != "":
                 keywords = list(self.lb_keywords_content_var.get())
@@ -373,10 +375,9 @@ class KwsUi:
         if filename in self.file_content.keys():
             content = self.file_content[filename]
             audio_path = content["filepath_audio"]
-            self.audio_player = pyglet.media.Player()
-            self.audio_player.queue(pyglet.media.load(audio_path))
-            self.audio_player.seek(begin_time - 1)
-            self.audio_player.play()
+
+    def save_snippet_btn(self):
+        print("Save")
 
     def update_seek_bar(self, current, total):
         percentage = (current / total) * 100
