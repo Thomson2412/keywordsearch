@@ -25,7 +25,8 @@ class AudioTranscribe:
         tokens = result.transcripts[0].tokens
         len_tokens = len(tokens)
 
-        callback(0, len_tokens)
+        if callback:
+            callback(0, len_tokens)
         for i, token in enumerate(tokens):
             char = token.text
             if len(word) == 0:
@@ -42,6 +43,7 @@ class AudioTranscribe:
                 word = []
             else:
                 word.append(char)
-            callback(i + 1, len_tokens)
+            if callback:
+                callback(i + 1, len_tokens)
         return words, times
 
