@@ -7,6 +7,7 @@ import tkinter as tk
 import tkinter.filedialog
 import tkinter.ttk
 from AudioTranscribe import AudioTranscribe
+import RawAudioPlayer
 from UI.EntryWithPlaceholder import EntryWithPlaceholder
 
 
@@ -29,6 +30,8 @@ class KwsUi:
 
         self.lb_time_words_content_var = tk.Variable(value=[])
 
+        self.ent_snippet_padding_var = tk.StringVar()
+
         self.last_selected_file = ""
         self.last_selected_snippet = -1
 
@@ -45,9 +48,9 @@ class KwsUi:
         self.lb_keywords.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         # lb_keywords.bind('<<ListboxSelect>>', keyword_selected)
 
-        entry_keywords = EntryWithPlaceholder(frame_config, width=40, textvariable=self.ent_search_var,
-                                              placeholder="Enter keyword")
-        entry_keywords.pack(side=tk.TOP, fill=tk.X, expand=False)
+        ent_keywords = EntryWithPlaceholder(frame_config, width=40, textvariable=self.ent_search_var,
+                                            placeholder="Enter keyword")
+        ent_keywords.pack(side=tk.TOP, fill=tk.X, expand=False)
         btn_word_remove = tk.Button(frame_config, text="-", command=self.remove_keyword_selected)
         btn_word_remove.pack(side=tk.LEFT, fill=tk.X, expand=True)
         btn_word_add = tk.Button(frame_config, text="+", command=self.add_keyword_from_entry)
@@ -107,14 +110,16 @@ class KwsUi:
         frame_time_words.grid(row=1, column=2, sticky="nsew")
         lbl_time_header = tk.Label(frame_time_words, text="Timestamps and snippets")
         lbl_time_header.pack(side=tk.TOP, fill=tk.X, expand=False)
-        btn_play_snippet = tk.Button(frame_time_words, text="Play snippet",
-                                     command=self.play_stop_snippet_btn)
-        btn_play_snippet.pack(side=tk.TOP, fill=tk.X, expand=False)
+        self.btn_play_snippet = tk.Button(frame_time_words, text="Play snippet",
+                                          command=self.play_stop_snippet_btn)
+        self.btn_play_snippet.pack(side=tk.TOP, fill=tk.X, expand=False)
         btn_save_snippet = tk.Button(frame_time_words, text="Save snippet",
                                      command=self.save_snippet_btn)
         btn_save_snippet.pack(side=tk.TOP, fill=tk.X, expand=False)
-        self.seek_bar = tk.ttk.Progressbar(frame_time_words, orient=tk.HORIZONTAL, length=100, mode='determinate')
-        self.seek_bar.pack(side=tk.TOP, fill=tk.X, expand=False)
+        ent_snippet_padding = EntryWithPlaceholder(frame_time_words, width=40,
+                                                   textvariable=self.ent_snippet_padding_var,
+                                                   placeholder="Snippet padding (Seconds)")
+        ent_snippet_padding.pack(side=tk.TOP, fill=tk.X, expand=False)
         lb_time_words = tk.Listbox(frame_time_words, listvariable=self.lb_time_words_content_var)
         lb_time_words.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         sb_time_words = tk.Scrollbar(frame_time_words, orient="vertical")
@@ -132,6 +137,8 @@ class KwsUi:
 
         self.audio_transcriber = AudioTranscribe("data/models/deepspeech-0.9.3-models.pbmm",
                                                  "data/models/deepspeech-0.9.3-models.scorer")
+
+        self.audio_player = RawAudioPlayer.RawAudioPlayer(self.play_end, self.update_progress_bar)
 
         self.window.mainloop()
 
@@ -346,6 +353,7 @@ class KwsUi:
 
     def search_keyword_timestamps_in_time_file(self, filename, keywords):
         self.lb_time_words_content_var.set([])
+        self.last_selected_snippet = - 1
         timestamps = self.get_timestamps_for_keywords(filename, keywords)
         to_show_times = []
         for timestamp in timestamps:
@@ -361,30 +369,50 @@ class KwsUi:
             self.last_selected_snippet = index
 
     def play_stop_snippet_btn(self):
-        if True:
-            print("Playing")
+        if self.audio_player.is_playing:
+            self.audio_player.stop()
+            self.btn_play_snippet["text"] = "Play snippet"
         else:
-            if self.last_selected_file != "":
+            if self.last_selected_file != "" and self.last_selected_snippet >= 0:
                 keywords = list(self.lb_keywords_content_var.get())
                 if len(keywords) > 0:
                     timestamps = self.get_timestamps_for_keywords(self.last_selected_file, keywords)
                     timestamp = timestamps[self.last_selected_snippet]
-                    self.play_snippet(self.last_selected_file, timestamp[1]["start"], timestamp[1]["end"])
+                    padding_txt = self.ent_snippet_padding_var.get()
+                    padding = 0
+                    if padding_txt.isnumeric():
+                        padding = int(padding_txt)
+                    self.audio_player.play_snippet(
+                        self.file_content[self.last_selected_file]["filepath_audio"],
+                        timestamp[1]["start"],
+                        timestamp[1]["end"],
+                        padding
+                    )
+                    self.btn_play_snippet["text"] = "Stop snippet"
 
-    def play_snippet(self, filename, begin_time, end_time):
-        if filename in self.file_content.keys():
-            content = self.file_content[filename]
-            audio_path = content["filepath_audio"]
+    def play_end(self):
+        self.update_progress_bar(1, 1)
+        self.btn_play_snippet["text"] = "Play snippet"
 
     def save_snippet_btn(self):
-        print("Save")
+        if self.last_selected_file != "" and self.last_selected_snippet >= 0:
+            keywords = list(self.lb_keywords_content_var.get())
+            if len(keywords) > 0:
+                timestamps = self.get_timestamps_for_keywords(self.last_selected_file, keywords)
+                timestamp = timestamps[self.last_selected_snippet]
+                padding_txt = self.ent_snippet_padding_var.get()
+                padding = 0
+                if padding_txt.isnumeric():
+                    padding = int(padding_txt)
+                cut_audio_segment = RawAudioPlayer.cut_audio(
+                    self.file_content[self.last_selected_file]["filepath_audio"],
+                    timestamp[1]["start"],
+                    timestamp[1]["end"],
+                    padding
+                )
+                output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".wav")
+                cut_audio_segment.export(output_file_path, format="wav")
 
-    def update_seek_bar(self, current, total):
-        percentage = (current / total) * 100
-        if 0 <= percentage < 100:
-            self.progress_bar["value"] = percentage
-        if percentage == 100:
-            self.progress_bar["value"] = 0
 
     def update_progress_bar(self, current, total):
         percentage = (current / total) * 100

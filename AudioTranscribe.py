@@ -14,7 +14,7 @@ class AudioTranscribe:
         self.model = deepspeech.Model(model_file)
         self.model.enableExternalScorer(scorer_file)
 
-    def transcribe(self, audio_file_path, callback):
+    def transcribe(self, audio_file_path, callback=None):
         audio, sample_rate, audio_length = read_audio(audio_file_path)
 
         first_start_time = 0

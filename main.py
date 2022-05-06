@@ -1,5 +1,6 @@
 from UI.KwsUi import KwsUi
 
+
 def main():
     KwsUi()
     # input_file_path = "recordings/english1.mp3"

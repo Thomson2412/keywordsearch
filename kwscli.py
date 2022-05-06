@@ -32,7 +32,7 @@ for file_path in input_files:
         filename_split = os.path.splitext(file_path_tail)
 
         print(f"Started transcribing: {file_path_tail}")
-        result = audio_transcriber.transcribe(file_path, None)
+        result = audio_transcriber.transcribe(file_path)
         result_txt = " ".join(result[0])
         result_time = result[1]
         print(f"Finished transcribing: {file_path_tail}")

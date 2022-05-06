@@ -9,7 +9,8 @@ setup(
         'deepspeech-gpu',
         'librosa',
         'numpy',
-        'pyglet'
+        'pydub',
+        'pyaudio'
     ],
     author='Thomas Fink',
 )
