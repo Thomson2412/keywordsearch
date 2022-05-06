@@ -19,7 +19,8 @@ conda env remove --name keywordsearch
 conda create --name keywordsearch python=3.8
 conda activate keywordsearch
 if [[ $CONDA_DEFAULT_ENV == "keywordsearch" ]]; then
-  sudo apt install portaudio19-dev
+  sudo apt install gcc -y
+  sudo apt install portaudio19-dev -y
   pip install .
 
   conda deactivate
