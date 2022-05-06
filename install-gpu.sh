@@ -19,6 +19,7 @@ conda env remove --name keywordsearch
 conda create --name keywordsearch python=3.8
 conda activate keywordsearch
 if [[ $CONDA_DEFAULT_ENV == "keywordsearch" ]]; then
+  sudo apt install ffmpeg -y
   sudo apt install gcc -y
   sudo apt install portaudio19-dev -y
   conda install cudatoolkit=10.1 cudnn=7.6
