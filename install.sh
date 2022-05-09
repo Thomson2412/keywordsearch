@@ -22,7 +22,13 @@ if [[ $CONDA_DEFAULT_ENV == "keywordsearch" ]]; then
   sudo apt install ffmpeg -y
   sudo apt install gcc -y
   sudo apt install portaudio19-dev -y
-  pip install .
+  if [[ $1 == "--gpu" ]];
+  then
+    conda install cudatoolkit=10.1 cudnn=7.6
+    pip install keywordsearch[gpu]
+  else
+    pip install keywordsearch[cpu]
+  fi
 
   conda deactivate
   conda deactivate

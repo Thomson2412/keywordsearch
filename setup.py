@@ -5,12 +5,14 @@ setup(
     version='0.8',
     packages=[''],
     install_requires=[
-        'deepspeech',
-        'deepspeech-gpu',
         'librosa',
         'numpy',
         'pydub',
         'pyaudio'
     ],
+    extras_require={
+        'gpu': ['deepspeech-gpu'],
+        'cpu': ['deepspeech']
+    },
     author='Thomas Fink',
 )
