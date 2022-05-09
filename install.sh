@@ -25,9 +25,9 @@ if [[ $CONDA_DEFAULT_ENV == "keywordsearch" ]]; then
   if [[ $1 == "--gpu" ]];
   then
     conda install cudatoolkit=10.1 cudnn=7.6
-    pip install keywordsearch[gpu]
+    pip install .[gpu]
   else
-    pip install keywordsearch[cpu]
+    pip install .[cpu]
   fi
 
   conda deactivate
