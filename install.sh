@@ -16,7 +16,7 @@ conda config --set auto_activate_base false
 
 export CONDA_ALWAYS_YES="true"
 conda env remove --name keywordsearch
-conda create --name keywordsearch python=3.8
+conda create --name keywordsearch python=3.9
 conda activate keywordsearch
 if [[ $CONDA_DEFAULT_ENV == "keywordsearch" ]]; then
   sudo apt install ffmpeg -y
