@@ -48,9 +48,9 @@ class KwsUi:
         self.lb_keywords.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         # lb_keywords.bind('<<ListboxSelect>>', keyword_selected)
 
-        ent_keywords = EntryWithPlaceholder(frame_config, width=40, textvariable=self.ent_search_var,
-                                            placeholder="Enter keyword")
-        ent_keywords.pack(side=tk.TOP, fill=tk.X, expand=False)
+        self.ent_keywords = EntryWithPlaceholder(frame_config, width=40, textvariable=self.ent_search_var,
+                                                 placeholder="Enter keyword")
+        self.ent_keywords.pack(side=tk.TOP, fill=tk.X, expand=False)
         btn_word_remove = tk.Button(frame_config, text="-", command=self.remove_keyword_selected)
         btn_word_remove.pack(side=tk.LEFT, fill=tk.X, expand=True)
         btn_word_add = tk.Button(frame_config, text="+", command=self.add_keyword_from_entry)
@@ -105,6 +105,15 @@ class KwsUi:
         btn_one_transcribe = tk.Button(frame_transcribe_controls, text="Transcribe selected",
                                        command=self.transcribe_audio_single_btn)
         btn_one_transcribe.pack(side=tk.TOP, fill=tk.X, expand=False)
+        btn_save_text = tk.Button(frame_transcribe_controls, text="Save transcription text",
+                                  command=self.save_transcription_btn)
+        btn_save_text.pack(side=tk.TOP, fill=tk.X, expand=False)
+        # btn_copy_all_text = tk.Button(frame_transcribe_controls, text="Copy all transcriptions text",
+        #                               command=self.copy_all_transcription_btn)
+        # btn_copy_all_text.pack(side=tk.TOP, fill=tk.X, expand=False)
+        btn_save_abstract = tk.Button(frame_transcribe_controls, text="Save abstract text",
+                                      command=self.save_abstract_btn)
+        btn_save_abstract.pack(side=tk.TOP, fill=tk.X, expand=False)
 
         frame_time_words = tk.Frame(self.window)
         frame_time_words.grid(row=1, column=2, sticky="nsew")
@@ -215,7 +224,7 @@ class KwsUi:
 
     def add_keyword_from_entry(self):
         word = self.ent_search_var.get()
-        if word is not string.whitespace and len(word) > 0:
+        if word is not string.whitespace and len(word) > 0 and not self.ent_keywords.has_placeholder:
             keywords = list(self.lb_keywords_content_var.get())
             if word not in keywords:
                 keywords.append(word)
@@ -223,7 +232,7 @@ class KwsUi:
                 self.populate_files(keywords)
                 if self.last_selected_file != "":
                     self.create_file_text(self.last_selected_file)
-                    self.create_abstract(self.last_selected_file, keywords)
+                    self.display_abstract(self.last_selected_file, keywords)
                     self.search_keyword_timestamps_in_time_file(self.last_selected_file, keywords)
             self.ent_search_var.set("")
 
@@ -234,9 +243,9 @@ class KwsUi:
                 self.lb_keywords.delete(index)
             keywords = list(self.lb_keywords_content_var.get())
             self.populate_files(keywords)
-            if self.last_selected_file != "" and len(keywords) > 0:
+            if self.last_selected_file != "":
                 self.create_file_text(self.last_selected_file)
-                self.create_abstract(self.last_selected_file, keywords)
+                self.display_abstract(self.last_selected_file, keywords)
                 self.search_keyword_timestamps_in_time_file(self.last_selected_file, keywords)
 
     def file_selected(self, event):
@@ -249,7 +258,7 @@ class KwsUi:
             self.create_file_text(self.last_selected_file)
             keywords = list(self.lb_keywords_content_var.get())
             if len(keywords) > 0:
-                self.create_abstract(self.last_selected_file, keywords)
+                self.display_abstract(self.last_selected_file, keywords)
                 self.search_keyword_timestamps_in_time_file(self.last_selected_file, keywords)
             else:
                 self.clear_abstract()
@@ -294,22 +303,32 @@ class KwsUi:
 
     def create_abstract(self, file, keywords):
         if file != "" and len(keywords) > 0:
-            self.clear_abstract()
             text = self.file_content[file]["text"]
+            if text is not None and text != "":
+                lines = []
+                for kw in keywords:
+                    indices = [m.start() for m in re.finditer(r'\b' + kw + r'\b', text)]
+                    for c, index in enumerate(indices):
+                        lines.append(f"Abstract for {kw}, instance {c}: \n")
+                        lines.append(f"{text[max(index - 50, 0):index + 50]} \n\n")
+                return lines
+        return []
+
+    def display_abstract(self, file, keywords):
+        self.clear_abstract()
+        lines = self.create_abstract(file, keywords)
+        if len(lines) > 0:
             self.lbl_abstract_header_var.set(", ".join(keywords))
             self.abstract_text.config(state=tk.NORMAL)
-            for kw in keywords:
-                indices = [m.start() for m in re.finditer(r'\b' + kw + r'\b', text)]
-                for c, index in enumerate(indices):
-                    self.abstract_text.insert(tk.END, f"Abstract for {kw}, instance {c}: \n")
-                    self.abstract_text.insert(tk.END, f"{text[max(index - 50, 0):index + 50]} \n\n")
+            for line in lines:
+                self.abstract_text.insert(tk.END, line)
             self.abstract_text.config(state=tk.DISABLED)
 
     def transcribe_audio_single_btn(self):
         if self.last_selected_file != "":
             self.transcribe_audio_single(self.last_selected_file)
             self.create_file_text(self.last_selected_file)
-            self.create_abstract(self.last_selected_file, list(self.lb_keywords_content_var.get()))
+            self.display_abstract(self.last_selected_file, list(self.lb_keywords_content_var.get()))
             self.search_keyword_timestamps_in_time_file(self.last_selected_file,
                                                         list(self.lb_keywords_content_var.get()))
 
@@ -413,6 +432,40 @@ class KwsUi:
                 output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".wav")
                 cut_audio_segment.export(output_file_path, format="wav")
 
+    def save_transcription_btn(self):
+        if self.last_selected_file != "" and self.file_content[self.last_selected_file]["has_transcription"]:
+            selected_txt = self.file_content[self.last_selected_file]["text"]
+            output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".txt")
+            with open(output_file_path, "w") as f:
+                f.write(selected_txt)
+
+    def copy_all_transcription_btn(self):
+        if self.last_selected_file != "":
+            keywords = list(self.lb_keywords_content_var.get())
+            if len(keywords) > 0:
+                timestamps = self.get_timestamps_for_keywords(self.last_selected_file, keywords)
+                timestamp = timestamps[self.last_selected_snippet]
+                padding_txt = self.ent_snippet_padding_var.get()
+                padding = 0
+                if padding_txt.isnumeric():
+                    padding = int(padding_txt)
+                cut_audio_segment = RawAudioPlayer.cut_audio(
+                    self.file_content[self.last_selected_file]["filepath_audio"],
+                    timestamp[1]["start"],
+                    timestamp[1]["end"],
+                    padding
+                )
+                output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".wav")
+                cut_audio_segment.export(output_file_path, format="wav")
+
+    def save_abstract_btn(self):
+        if self.last_selected_file != "" and self.file_content[self.last_selected_file]["has_transcription"]:
+            keywords = list(self.lb_keywords_content_var.get())
+            if len(keywords) > 0:
+                selected_abstract = self.create_abstract(self.last_selected_file, keywords)
+                output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".txt")
+                with open(output_file_path, "w") as f:
+                    f.write("".join(selected_abstract))
 
     def update_progress_bar(self, current, total):
         percentage = (current / total) * 100
