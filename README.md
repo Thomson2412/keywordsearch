@@ -2,32 +2,32 @@
 This project is created for the ViFrU.
 The program can create transcriptions of wav and mp3 files by leveraging the latest Mozilla Deepspeech.
 Transcriptions can be searched for entered keywords.
-Abstracts and audio snipets of the found keywords can be extracted.
+Abstracts and audio snippets of the found keywords can be extracted.
 
-## Instalation
+## Installation
 
 ### Setup script
-A setup script is provided to ease the instalation process.
+A setup script is provided to ease the installation process.
 However, this script is only tested on the Ubuntu Linux distro. Other Ubuntu based distributions might work but are not tested.
-Operating systems besides Linux are not superted by the setup script.
+Operating systems besides Linux are not supported by the setup script.
 
-The setup script will install miniconda, create a new conda enviroment, download the required dependencies and the required deepspeech models and will create a desktop entry.
+The setup script will install miniconda, create a new conda environment, download the required dependencies and the required deepspeech models and will create a desktop entry.
 
 To run the setup script use the following command:
 ```
 ./install
 ```
 
-The program can take advandtaege of gpu acceleration.
-Incase the system has a compatible NVIDIA gpu please pass the following agrumant to the install script:
+The program can take advantage of gpu acceleration.
+Incase the system has a compatible NVIDIA gpu please pass the following argument to the install script:
 ```
 ./install --gpu
 ```
 
 ### Manual
-If, for whatever reason, the setup script cannot be used, manual instalation can be performed with the follwing commands.
+If, for whatever reason, the setup script cannot be used, manual installation can be performed with the following commands.
 
-#### Miniconda instalation:
+#### Miniconda installation:
 ```
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O install_files/miniconda.sh
 chmod +x miniconda.sh
@@ -41,14 +41,14 @@ wget https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0
 wget https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0.9.3-models.scorer -O data/models/deepspeech-0.9.3-models.scorer
 ```
 
-#### Creating conda enviroment:
+#### Creating conda environment:
 ```
 conda env remove --name keywordsearch
 conda create --name keywordsearch python=3.9
 conda activate keywordsearch
 ```
 
-#### Installing dependecies (execute in the root folder of the project with enviroment activated):
+#### Installing dependencies (execute in the root folder of the project with environment activated):
 ```
 sudo apt install ffmpeg
 sudo apt install gcc
@@ -79,7 +79,7 @@ python main.py
 ```
 
 ### CLI
-To use the CLI make sure the enviroment is activaded with the following command:
+To use the CLI make sure the environment is activated with the following command:
 ```
 conda activate keywordsearch
 ```
