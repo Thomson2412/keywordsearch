@@ -5,6 +5,10 @@ Transcriptions can be searched for entered keywords.
 Abstracts and audio snippets of the found keywords can be extracted.
 
 ## Installation
+As a first step clone the repo by using the following command:
+```
+git clone https://github.com/Thomson2412/keywordsearch
+```
 
 ### Setup script
 A setup script is provided to ease the installation process.
