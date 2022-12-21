@@ -1,49 +1,32 @@
-import deepspeech
-import librosa
-import numpy as np
-
-
-def read_audio(path):
-    audio_data, sample_rate = librosa.load(path, sr=16000)
-    duration = librosa.get_duration(y=audio_data, sr=sample_rate)
-    return (audio_data * 32767).astype(np.int16), sample_rate, duration
+import torch
+import whisper
 
 
 class AudioTranscribe:
-    def __init__(self, model_file, scorer_file):
-        self.model = deepspeech.Model(model_file)
-        self.model.enableExternalScorer(scorer_file)
+    def __init__(self, model_name):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = whisper.load_model(model_name)
+        if device == "cuda":
+            self.model = whisper.load_model(model_name).cuda()
+        self.language = "en" if model_name.endswith(".en") else None
 
     def transcribe(self, audio_file_path, callback=None):
-        audio, sample_rate, audio_length = read_audio(audio_file_path)
+        transcription = self.model.transcribe(audio_file_path, language=self.language)
+        segments = transcription['segments']
+        len_segments = len(segments)
 
-        first_start_time = 0
-        word = []
-        words = []
-        times = {}
-        result = self.model.sttWithMetadata(audio)
-        tokens = result.transcripts[0].tokens
-        len_tokens = len(tokens)
+        lines = {}
 
-        if callback:
-            callback(0, len_tokens)
-        for i, token in enumerate(tokens):
-            char = token.text
-            if len(word) == 0:
-                first_start_time = token.start_time
-            if char == " " or i == len_tokens - 1:
-                if i == len_tokens - 1:
-                    word.append(char)
-                word_str = "".join(word)
-                words.append(word_str)
-                if word_str in times:
-                    times[word_str].append({"start": first_start_time, "end": token.start_time})
-                else:
-                    times[word_str] = [{"start": first_start_time, "end": token.start_time}]
-                word = []
-            else:
-                word.append(char)
+        for i, segment in enumerate(segments):
+            start_time = segment['start']
+            end_time = segment['end']
+            line = segment['text'].strip()
+            lines[int(segment['id'])] = {
+                "line": line,
+                "start": start_time,
+                "end": end_time
+            }
             if callback:
-                callback(i + 1, len_tokens)
-        return words, times
+                callback(i + 1, len_segments)
 
+        return lines

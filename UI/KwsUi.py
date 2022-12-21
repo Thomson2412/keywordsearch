@@ -18,7 +18,7 @@ class KwsUi:
         self.window.title("ViFrU - keyword search")
         self.window.configure(bg="#e0e0e0")
         self.selected_dir = "No dir selected"
-        self.file_content = {}
+        self.file_info = {}
         self.lbl_selected_dir_var = tk.StringVar(value=self.selected_dir)
 
         self.lbl_abstract_header_var = tk.StringVar()
@@ -144,29 +144,29 @@ class KwsUi:
         self.progress_label = tk.Label(frame_progress, text="Ready")
         self.progress_label.pack(side=tk.RIGHT)
 
-        self.audio_transcriber = AudioTranscribe("data/models/deepspeech-0.9.3-models.pbmm",
-                                                 "data/models/deepspeech-0.9.3-models.scorer")
+        self.audio_transcriber = AudioTranscribe("base.en")
 
         self.audio_player = RawAudioPlayer.RawAudioPlayer(self.play_end, self.update_progress_bar)
 
         self.window.mainloop()
 
     def populate_files(self, keywords):
-        if len(self.file_content) > 0:
+        if len(self.file_info) > 0:
             filepath_list = []
             if len(keywords) > 0:
-                self.update_progress_bar(0, len(self.file_content))
-                for i, (file, content) in enumerate(self.file_content.items()):
-                    all_match = True
-                    for kw in keywords:
-                        if not re.search(r'\b' + kw + r'\b', content["text"]):
-                            all_match = False
-                            break
-                    if all_match:
-                        filepath_list.append(file)
-                    self.update_progress_bar(i + 1, len(self.file_content))
+                self.update_progress_bar(0, len(self.file_info))
+                for i, (file, content) in enumerate(self.file_info.items()):
+                    if self.file_info[file]["has_transcription"]:
+                        all_match = True
+                        for kw in keywords:
+                            if not re.search(r'\b' + kw + r'\b', self.create_text_from_filepath(file)):
+                                all_match = False
+                                break
+                        if all_match:
+                            filepath_list.append(file)
+                        self.update_progress_bar(i + 1, len(self.file_info))
             else:
-                filepath_list = list(self.file_content.keys())
+                filepath_list = list(self.file_info.keys())
             if len(filepath_list) == 0:
                 self.last_selected_file = ""
             if self.last_selected_file not in filepath_list:
@@ -184,7 +184,7 @@ class KwsUi:
         else:
             self.selected_dir = new_dir
         self.lbl_selected_dir_var.set(self.selected_dir)
-        self.file_content = {}
+        self.file_info = {}
         for root, dirs, files in os.walk(self.selected_dir):
             files_amount = len(files)
             for i, filename in enumerate(files):
@@ -193,30 +193,15 @@ class KwsUi:
                 if filename.endswith(".wav") or filename.endswith(".mp3"):
                     filepath = os.path.splitext(filename)[0]
                     filepath_audio = os.path.join(root, filename)
-                    filepath_txt = os.path.join(root, f"{filepath}.txt")
-                    filepath_time = os.path.join(root, f"{filepath}.json")
+                    filepath_json = os.path.join(root, f"{filepath}.json")
 
-                    text = ""
                     has_transcription = False
-                    if os.path.exists(filepath_txt):
-                        with open(filepath_txt, "r") as f:
-                            text = f.read()
-                            has_transcription = True
-                    has_time_file = False
-                    time_content = {}
-                    if os.path.exists(filepath_time):
-                        with open(filepath_time, "r") as f:
-                            time_content = json.load(f)
-                            has_time_file = True
-                    self.file_content[filepath] = {
-                        "text": text,
-                        "time_content": time_content,
+                    if os.path.exists(filepath_json):
+                        has_transcription = True
+                    self.file_info[filepath] = {
                         "filepath_audio": filepath_audio,
-                        "filepath_txt": filepath_txt,
-                        "has_transcription": has_transcription,
-                        "filepath_time": filepath_time,
-                        "has_time_file": has_time_file
-
+                        "filepath_json": filepath_json,
+                        "has_transcription": has_transcription
                     }
                 self.update_progress_bar(i + 1, files_amount)
         keywords = list(self.lb_keywords_content_var.get())
@@ -273,8 +258,8 @@ class KwsUi:
     def create_file_text(self, file):
         if file != "":
             self.clear_file_text()
-            if self.file_content[file]["has_transcription"]:
-                text = self.file_content[file]["text"]
+            if self.file_info[file]["has_transcription"]:
+                text = self.create_text_from_filepath(file)
             else:
                 text = "No transcription found"
             self.lbl_text_header_var.set(file)
@@ -303,14 +288,25 @@ class KwsUi:
 
     def create_abstract(self, file, keywords):
         if file != "" and len(keywords) > 0:
-            text = self.file_content[file]["text"]
-            if text is not None and text != "":
-                lines = []
+            content = self.file_info[file]
+            lines = []
+            with open(content["filepath_json"], "r") as f:
+                content_json = json.load(f)
                 for kw in keywords:
-                    indices = [m.start() for m in re.finditer(r'\b' + kw + r'\b', text)]
-                    for c, index in enumerate(indices):
-                        lines.append(f"Abstract for {kw}, instance {c}: \n")
-                        lines.append(f"{text[max(index - 50, 0):index + 50]} \n\n")
+                    count = 0
+                    for key, line_info in content_json.items():
+                        line = line_info["line"]
+                        if kw in line:
+                            count += 1
+                            lines.append(f"Abstract for {kw}, instance {count}: \n")
+                            int_key = int(key)
+                            if int_key > 0:
+                                lines.append(content_json[str(int_key - 1)]["line"])
+                            if int_key < len(content_json):
+                                lines.append(content_json[str(int_key + 1)]["line"])
+                            lines.append(line)
+                            lines.append("\n\n")
+                    lines.append("\n")
                 return lines
         return []
 
@@ -333,41 +329,39 @@ class KwsUi:
                                                         list(self.lb_keywords_content_var.get()))
 
     def transcribe_audio_single(self, filename):
-        if filename in self.file_content.keys() and (not self.file_content[filename]["has_transcription"]
-                                                     or not self.file_content[filename]["has_time_file"]):
-            content = self.file_content[filename]
+        if filename in self.file_info.keys():
+            content = self.file_info[filename]
+            self.update_progress_bar(0, 1)
             result = self.audio_transcriber.transcribe(content["filepath_audio"], self.update_progress_bar)
-            if not content["has_transcription"]:
-                result_txt = " ".join(result[0])
-                with open(content["filepath_txt"], "x") as f:
-                    f.write(result_txt)
-                    content["text"] = result_txt
-                    content["has_transcription"] = True
-            if not content["has_time_file"]:
-                result_time = result[1]
-                with open(content["filepath_time"], "x") as f:
-                    json.dump(result_time, f, indent=4)
-                    content["time_content"] = result_time
-                    content["has_time_file"] = True
+
+            with open(content["filepath_json"], "w") as f:
+                json.dump(result, f, indent=4)
+                content["has_transcription"] = True
+
+            # with open(content["filepath_txt"], "w") as f:
+            #     f.write(" ".join([r["line"] for r in result.values()]))
+            #     content["has_transcription"] = True
+
+            self.update_progress_bar(1, 1)
 
     def transcribe_audio_all(self):
-        files_amount = len(self.file_content)
+        files_amount = len(self.file_info)
         self.update_progress_bar(0, files_amount)
-        for i, filename in enumerate(self.file_content.keys()):
+        for i, filename in enumerate(self.file_info.keys()):
             self.transcribe_audio_single(filename)
             self.update_progress_bar(i + 1, files_amount)
 
     def get_timestamps_for_keywords(self, filename, keywords):
         result = []
-        if filename in self.file_content.keys():
-            content = self.file_content[filename]
-            if content["has_time_file"]:
-                if len(keywords) > 0:
+        if filename in self.file_info.keys():
+            content = self.file_info[filename]
+            if len(keywords) > 0 and content["has_transcription"]:
+                with open(content["filepath_json"], "r") as f:
+                    content_json = json.load(f)
                     for kw in keywords:
-                        if kw in content["time_content"]:
-                            timestamps = content["time_content"][kw]
-                            for timestamp in timestamps:
-                                result.append([kw, timestamp])
+                        for line_info in content_json.values():
+                            if kw in line_info["line"]:
+                                result.append([kw, line_info["start"], line_info["end"]])
         return result
 
     def search_keyword_timestamps_in_time_file(self, filename, keywords):
@@ -376,8 +370,8 @@ class KwsUi:
         timestamps = self.get_timestamps_for_keywords(filename, keywords)
         to_show_times = []
         for timestamp in timestamps:
-            start = time.strftime('%H:%M:%S', time.gmtime(timestamp[1]["start"]))
-            end = time.strftime('%H:%M:%S', time.gmtime(timestamp[1]["end"]))
+            start = time.strftime('%H:%M:%S', time.gmtime(timestamp[1]))
+            end = time.strftime('%H:%M:%S', time.gmtime(timestamp[2]))
             to_show_times.append(f"{timestamp[0]}: {start} - {end}")
         self.lb_time_words_content_var.set(to_show_times)
 
@@ -402,9 +396,9 @@ class KwsUi:
                     if padding_txt.isnumeric():
                         padding = int(padding_txt)
                     self.audio_player.play_snippet(
-                        self.file_content[self.last_selected_file]["filepath_audio"],
-                        timestamp[1]["start"],
-                        timestamp[1]["end"],
+                        self.file_info[self.last_selected_file]["filepath_audio"],
+                        timestamp[1],
+                        timestamp[2],
                         padding
                     )
                     self.btn_play_snippet["text"] = "Stop snippet"
@@ -424,17 +418,17 @@ class KwsUi:
                 if padding_txt.isnumeric():
                     padding = int(padding_txt)
                 cut_audio_segment = RawAudioPlayer.cut_audio(
-                    self.file_content[self.last_selected_file]["filepath_audio"],
-                    timestamp[1]["start"],
-                    timestamp[1]["end"],
+                    self.file_info[self.last_selected_file]["filepath_audio"],
+                    timestamp[1],
+                    timestamp[2],
                     padding
                 )
                 output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".wav")
                 cut_audio_segment.export(output_file_path, format="wav")
 
     def save_transcription_btn(self):
-        if self.last_selected_file != "" and self.file_content[self.last_selected_file]["has_transcription"]:
-            selected_txt = self.file_content[self.last_selected_file]["text"]
+        if self.last_selected_file != "" and self.file_info[self.last_selected_file]["has_transcription"]:
+            selected_txt = self.create_text_from_filepath(self.last_selected_file)
             output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".txt")
             with open(output_file_path, "w") as f:
                 f.write(selected_txt)
@@ -450,22 +444,30 @@ class KwsUi:
                 if padding_txt.isnumeric():
                     padding = int(padding_txt)
                 cut_audio_segment = RawAudioPlayer.cut_audio(
-                    self.file_content[self.last_selected_file]["filepath_audio"],
-                    timestamp[1]["start"],
-                    timestamp[1]["end"],
+                    self.file_info[self.last_selected_file]["filepath_audio"],
+                    timestamp[1],
+                    timestamp[2],
                     padding
                 )
                 output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".wav")
                 cut_audio_segment.export(output_file_path, format="wav")
 
     def save_abstract_btn(self):
-        if self.last_selected_file != "" and self.file_content[self.last_selected_file]["has_transcription"]:
+        if self.last_selected_file != "" and self.file_info[self.last_selected_file]["has_transcription"]:
             keywords = list(self.lb_keywords_content_var.get())
             if len(keywords) > 0:
                 selected_abstract = self.create_abstract(self.last_selected_file, keywords)
                 output_file_path = tk.filedialog.asksaveasfilename(defaultextension=".txt")
                 with open(output_file_path, "w") as f:
                     f.write("".join(selected_abstract))
+
+    def create_text_from_filepath(self, filepath):
+        if filepath in self.file_info.keys():
+            content = self.file_info[filepath]
+            with open(content["filepath_json"], "r") as f:
+                content_json = json.load(f)
+                text = " ".join([r["line"] for r in content_json.values()])
+                return text
 
     def update_progress_bar(self, current, total):
         percentage = (current / total) * 100
